@@ -375,10 +375,11 @@ void reveal_sq(const size_t board_width, const size_t board_height, const size_t
 }
 
 void solve(const size_t board_width, const size_t board_height, const bool **board, const unsigned int **mine_nums, unsigned int **const board_status, int **const num_mine_remaining, unsigned int **const num_unknown, std::set< std::pair<size_t, size_t> > &partial_sq_set, size_t &ssq_count) {
-	if (ssq_count == 0) {
+	//if (ssq_count == 0) {
+	while (ssq_count < board_width * board_height) {	
 		size_t y = rand() % board_height, x = rand() % board_width; 
 		while (true) {
-			if (!board[y][x]) {
+			if (!board[y][x] && board_status[y][x] == UNKNOWN) {
 				break;
 			}
 			y = rand() % board_height;
@@ -414,7 +415,7 @@ int main(int argc, char *argv[]) {
 	//print_mine_nums(BOARD_WIDTH, BOARD_HEIGHT, (const unsigned int**)mine_nums);
 	solve(BOARD_WIDTH, BOARD_HEIGHT, (const bool**)board, (const unsigned int**)mine_nums, board_status, num_mine_remaining, num_unknown, partial_sq_set, ssq_count);
 	print_board_status(BOARD_WIDTH, BOARD_HEIGHT, (const unsigned int**)board_status);
-	print_partial_sq_set(BOARD_WIDTH, BOARD_HEIGHT, partial_sq_set);
+	//print_partial_sq_set(BOARD_WIDTH, BOARD_HEIGHT, partial_sq_set);
 	//print_num_unknown(BOARD_WIDTH, BOARD_HEIGHT, (const unsigned int **)num_unknown);
 	delete_game(BOARD_HEIGHT, board, mine_nums, board_status, num_mine_remaining, num_unknown);
 	return 0;
