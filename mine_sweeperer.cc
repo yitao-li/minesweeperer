@@ -3,6 +3,7 @@
 #include <cassert>
 #include <vector>
 #include <set>
+#include <list>
 
 #define BOARD_WIDTH 16
 #define BOARD_HEIGHT 30
@@ -11,6 +12,7 @@
 #define MINE 0x0FFFFFFE
 #define REV 0x0FFFFFFD 
 #define VERBOSE 0
+#define MIN_PARTIAL_SQ_SET_SIZE 16
 
 void mark_as_mine(const size_t, const size_t, const size_t, const size_t, const bool **, unsigned int **const, unsigned int **const, const unsigned int **, int **const, std::set< std::pair<size_t, size_t> > &, size_t &);
 
@@ -65,7 +67,7 @@ void new_game(const size_t board_width, const size_t board_height, const size_t 
 	}
 	srand(time(0));
 	while (__num_mine < num_mine) {
-		size_t y = rand() % board_height, x = rand() % board_width;
+		const size_t y = rand() % board_height, x = rand() % board_width;
 		if (!board[y][x]) {
 			board[y][x] = true;
 			if (x > 0) {
@@ -207,6 +209,33 @@ void print_partial_sq_set(const size_t board_width, const size_t board_height, c
 		}
 		std::cout << "\n";
 	}
+}
+
+void print_segs(const size_t board_width, const size_t board_height, const std::set< std::pair<size_t, size_t> > &partial_sq_set, const std::vector< std::set< std::pair<size_t, size_t> >* > &segs) {
+std::cout << "num_segs == " << segs.size() << "\n";
+	for (size_t x = 0; x < board_width; ++x) {
+		std::cout << " _";
+	}
+	std::cout << "\n";
+	for (size_t y = 0; y < board_height; ++y) {
+		std::cout << "|";
+		for (size_t x = 0; x < board_width; ++x) {
+			if (partial_sq_set.find(std::pair<size_t, size_t>(x, y)) == partial_sq_set.end()) {
+				std::cout << "_|";
+			}else {
+				char seg_label = 'A';
+				for (std::vector< std::set< std::pair<size_t, size_t> >* >::const_iterator ss_iter = segs.begin(); ss_iter != segs.end(); ++ss_iter) {
+					if ((*ss_iter) -> find(std::pair<size_t, size_t>(x, y)) != (*ss_iter) -> end()) {
+						std::cout << seg_label << "|";
+						break;
+					}
+					++seg_label;
+				}
+			}
+		}
+		std::cout << "\n";
+	}
+
 }
 
 void deduce_remaining_mines(const size_t board_width, const size_t board_height, const size_t x, const size_t y, unsigned int **const board_status, unsigned int **const num_unknown, const unsigned int **mine_nums, int **const num_mine_remaining, const bool **board, std::set< std::pair<size_t, size_t> > &partial_sq_set, size_t &ssq_count) {
@@ -374,9 +403,46 @@ void reveal_sq(const size_t board_width, const size_t board_height, const size_t
 	}
 }
 
+void solve_partial_sq_set(const size_t board_width, const size_t board_height, const bool **board, const unsigned int **mine_nums, unsigned int **const board_status, int **const num_mine_remaining, unsigned int **const num_unknown, std::set< std::pair<size_t, size_t> > &partial_sq_set, size_t &ssq_count) {
+	std::set< std::pair<size_t, size_t> > ssq;
+	std::vector< std::set< std::pair<size_t, size_t> >* > segs;
+	for (std::set< std::pair<size_t, size_t> >::const_iterator p_iter = partial_sq_set.begin(); p_iter != partial_sq_set.end(); ++p_iter) {
+		if (ssq.find(*p_iter) != ssq.end()) {
+			continue;
+		}
+		std::list< std::pair<size_t, size_t> > q;
+		q.push_back(*p_iter);
+		ssq.insert(*p_iter);
+		std::set< std::pair<size_t, size_t> > *c_seg = new std::set< std::pair<size_t, size_t> >();
+		c_seg -> insert(*p_iter);
+		while (!q.empty()) {
+			std::pair<size_t, size_t> csq = q.front();
+			q.pop_front();
+			const size_t c_x = csq.first, c_y = csq.second, min_x = (c_x <= 2 ? 0 : c_x - 2), min_y = (c_y <= 2 ? 0 : c_y - 2), max_x = (c_x + 2 >= board_width ? board_width - 1 : c_x + 2), max_y = (c_y + 2 >= board_height ? board_height - 1 : c_y + 2);
+			for (size_t x = min_x; x <= max_x; ++x) {
+				for (size_t y = min_y; y <= max_y; ++y) {
+					if (x == c_x && y == c_y) {
+						continue;
+					}
+					if (board_status[y][x] != UNKNOWN && board_status[y][x] != MINE && partial_sq_set.find(std::pair<size_t, size_t>(x, y)) != partial_sq_set.end() && ssq.find(std::pair<size_t, size_t>(x, y)) == ssq.end()) {
+						c_seg -> insert(std::pair<size_t, size_t>(x, y));	
+						ssq.insert(std::pair<size_t, size_t>(x, y));
+						q.push_back(std::pair<size_t, size_t>(x, y));
+					}
+				}
+			}
+		}
+		segs.push_back(c_seg);
+	}
+	print_segs(board_width, board_height, partial_sq_set, segs);
+	for (std::vector< std::set< std::pair<size_t, size_t> >* >::const_iterator ss_iter = segs.begin(); ss_iter != segs.end(); ++ss_iter) {
+		delete *ss_iter;
+	}
+}
+
 void solve(const size_t board_width, const size_t board_height, const bool **board, const unsigned int **mine_nums, unsigned int **const board_status, int **const num_mine_remaining, unsigned int **const num_unknown, std::set< std::pair<size_t, size_t> > &partial_sq_set, size_t &ssq_count) {
 	//if (ssq_count == 0) {
-	while (ssq_count < board_width * board_height) {	
+	while (partial_sq_set.size() < MIN_PARTIAL_SQ_SET_SIZE && ssq_count < board_width * board_height) {	
 		size_t y = rand() % board_height, x = rand() % board_width; 
 		while (true) {
 			if (!board[y][x] && board_status[y][x] == UNKNOWN) {
@@ -387,6 +453,9 @@ void solve(const size_t board_width, const size_t board_height, const bool **boa
 		}
 		reveal_sq(board_width, board_height, x, y, board, board_status, num_unknown, mine_nums, num_mine_remaining, partial_sq_set, ssq_count);
 	}
+	print_board_status(BOARD_WIDTH, BOARD_HEIGHT, (const unsigned int**)board_status);
+	print_partial_sq_set(BOARD_WIDTH, BOARD_HEIGHT, partial_sq_set);
+	solve_partial_sq_set(board_width, board_height, board, mine_nums, board_status, num_mine_remaining, num_unknown, partial_sq_set, ssq_count);
 }
 
 void delete_game(const size_t board_height, bool **const board, unsigned int **const mine_nums, unsigned int **const board_status, int **const num_mine_remaining, unsigned int ** const num_unknown) {
@@ -414,7 +483,7 @@ int main(int argc, char *argv[]) {
 	//print_board(BOARD_WIDTH, BOARD_HEIGHT, (const bool**)board);
 	//print_mine_nums(BOARD_WIDTH, BOARD_HEIGHT, (const unsigned int**)mine_nums);
 	solve(BOARD_WIDTH, BOARD_HEIGHT, (const bool**)board, (const unsigned int**)mine_nums, board_status, num_mine_remaining, num_unknown, partial_sq_set, ssq_count);
-	print_board_status(BOARD_WIDTH, BOARD_HEIGHT, (const unsigned int**)board_status);
+	//print_board_status(BOARD_WIDTH, BOARD_HEIGHT, (const unsigned int**)board_status);
 	//print_partial_sq_set(BOARD_WIDTH, BOARD_HEIGHT, partial_sq_set);
 	//print_num_unknown(BOARD_WIDTH, BOARD_HEIGHT, (const unsigned int **)num_unknown);
 	delete_game(BOARD_HEIGHT, board, mine_nums, board_status, num_mine_remaining, num_unknown);
