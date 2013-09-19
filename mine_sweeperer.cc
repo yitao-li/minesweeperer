@@ -10,7 +10,7 @@
 #define NUM_MINE 99
 #define UNKNOWN 0x0FFFFFFF
 #define MINE 0x0FFFFFFE
-#define VERBOSE 0
+#define VERBOSE 1
 #define MIN_PARTIAL_SQ_SET_SIZE 16
 
 void mark_as_mine(const size_t, const size_t, const size_t, const size_t, const bool **, unsigned int **const, unsigned int **const, const unsigned int **, int **const, std::set< std::pair<size_t, size_t> > &, size_t &);
@@ -370,6 +370,13 @@ void reveal_sq(const size_t x, const size_t y, const size_t board_width, const s
 	board_status[y][x] = mine_nums[y][x];
 	num_mine_remaining[y][x] += mine_nums[y][x];
 	++ssq_count;
+	if (VERBOSE) {
+		print_board_status(board_width, board_height, (const unsigned int**)board_status);
+		for (size_t i = 0; i < board_width; ++i) {
+			std::cout << "__";
+		}
+		std::cout << "\nSTATUS: applying logical deductions...\n"; 
+	}
 	if (x > 0) {
 		decr_num_unknown(board_width, board_height, x - 1, y, board_status, num_unknown, mine_nums, num_mine_remaining, board, partial_sq_set, ssq_count);
 	}
@@ -594,7 +601,6 @@ void solve_partial_sq_set(const size_t board_width, const size_t board_height, c
 		}
 		segs.push_back(c_seg);
 	}
-print_segs(board_width, board_height, partial_sq_set, segs);
 	for (std::vector< std::set< std::pair<size_t, size_t> >* >::const_iterator ss_iter = segs.begin(); ss_iter != segs.end(); ++ss_iter) {
 		std::list< std::pair< std::set< std::pair<size_t, size_t> >, std::set< std::pair<size_t, size_t> > > > tentative_sols; 
 		for (std::set< std::pair<size_t, size_t> >::const_iterator sq_iter = (*ss_iter) -> begin(); sq_iter != (*ss_iter) -> end(); ++sq_iter) {
@@ -660,7 +666,7 @@ print_segs(board_width, board_height, partial_sq_set, segs);
 }
 
 void solve(const size_t board_width, const size_t board_height, const bool **board, const unsigned int **mine_nums, unsigned int **const board_status, int **const num_mine_remaining, unsigned int **const num_unknown, std::set< std::pair<size_t, size_t> > &partial_sq_set, size_t &ssq_count) {
-	while (partial_sq_set.size() < MIN_PARTIAL_SQ_SET_SIZE && ssq_count < board_width * board_height) {	
+	while (ssq_count < board_width * board_height) {
 		size_t y = rand() % board_height, x = rand() % board_width; 
 		while (true) {
 			if (!board[y][x] && board_status[y][x] == UNKNOWN) {
@@ -669,10 +675,33 @@ void solve(const size_t board_width, const size_t board_height, const bool **boa
 			y = rand() % board_height;
 			x = rand() % board_width;
 		}
+		if (VERBOSE) {
+			std::cout << "\n";
+			for (size_t i = 0; i < board_width; ++i) {
+				std::cout << "__";
+			}
+			std::cout << "\nSTATUS: \"I'm feeling lucky\"\n"; 
+		}
 		reveal_sq(x, y, board_width, board_height, board, board_status, num_unknown, mine_nums, num_mine_remaining, partial_sq_set, ssq_count);
+		if (VERBOSE) {
+			print_board_status(BOARD_WIDTH, BOARD_HEIGHT, (const unsigned int**)board_status);
+		}
+		if (VERBOSE) {
+			std::cout << "\n";
+			for (size_t i = 0; i < board_width; ++i) {
+				std::cout << "__";
+			}
+			std::cout << "\nSTATUS: applying logical deductions...\n"; 
+		}
+		solve_partial_sq_set(board_width, board_height, board, mine_nums, board_status, num_mine_remaining, num_unknown, partial_sq_set, ssq_count);
 	}
-	print_board_status(BOARD_WIDTH, BOARD_HEIGHT, (const unsigned int**)board_status);
-	solve_partial_sq_set(board_width, board_height, board, mine_nums, board_status, num_mine_remaining, num_unknown, partial_sq_set, ssq_count);
+	if (VERBOSE) {
+		std::cout << "\n";
+		for (size_t i = 0; i < board_width; ++i) {
+			std::cout << "__";
+		}
+		std::cout << "\nSTATUS: winning :)\n"; 
+	}
 }
 
 void delete_game(const size_t board_height, bool **const board, unsigned int **const mine_nums, unsigned int **const board_status, int **const num_mine_remaining, unsigned int ** const num_unknown) {
