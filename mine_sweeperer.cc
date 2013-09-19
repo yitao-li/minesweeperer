@@ -1,6 +1,7 @@
 #include <iostream>
 #include <cstdlib>
 #include <cassert>
+#include <algorithm>
 #include <vector>
 #include <set>
 #include <list>
@@ -13,11 +14,11 @@
 #define VERBOSE 1
 #define MIN_PARTIAL_SQ_SET_SIZE 16
 
-void mark_as_mine(const size_t, const size_t, const size_t, const size_t, const bool **, unsigned int **const, unsigned int **const, const unsigned int **, int **const, std::set< std::pair<size_t, size_t> > &, size_t &);
+void mark_as_mine(const size_t, const size_t, const size_t, const size_t, const bool **, unsigned int **const, unsigned int **const, const unsigned int **, int **const, std::set< std::pair<size_t, size_t> > &, std::set< std::pair<size_t, size_t> > &, size_t &);
 
-void reveal_sq(const size_t, const size_t, const size_t, const size_t, const bool **, unsigned int **const, unsigned int **const, const unsigned int **, int **const, std::set< std::pair<size_t, size_t> > &, size_t &);
+void reveal_sq(const size_t, const size_t, const size_t, const size_t, const bool **, unsigned int **const, unsigned int **const, const unsigned int **, int **const, std::set< std::pair<size_t, size_t> > &, std::set< std::pair<size_t, size_t> > &, size_t &);
 
-void new_game(const size_t board_width, const size_t board_height, const size_t num_mine, bool **&board, unsigned int **&mine_nums, unsigned int **&board_status, unsigned int **&num_unknown, int **&num_mine_remaining) {
+void new_game(const size_t board_width, const size_t board_height, const size_t num_mine, bool **&board, unsigned int **&mine_nums, unsigned int **&board_status, unsigned int **&num_unknown, int **&num_mine_remaining, std::set< std::pair<size_t, size_t> > &non_mines_sq_set) {
 	size_t __num_mine = 0; 
 	board = new bool*[board_height];
 	mine_nums = new unsigned int*[board_height];
@@ -94,6 +95,13 @@ void new_game(const size_t board_width, const size_t board_height, const size_t 
 				}
 			}
 			++__num_mine;
+		}
+	}
+	for (size_t y = 0; y < board_height; ++y) {
+		for (size_t x = 0; x < board_width; ++x) {
+			if (!board[y][x]) {
+				non_mines_sq_set.insert(std::pair<size_t, size_t>(x, y));
+			}
 		}
 	}
 }
@@ -236,138 +244,139 @@ void print_segs(const size_t board_width, const size_t board_height, const std::
 
 }
 
-void deduce_remaining_mines(const size_t board_width, const size_t board_height, const size_t x, const size_t y, unsigned int **const board_status, unsigned int **const num_unknown, const unsigned int **mine_nums, int **const num_mine_remaining, const bool **board, std::set< std::pair<size_t, size_t> > &partial_sq_set, size_t &ssq_count) {
+void deduce_remaining_mines(const size_t board_width, const size_t board_height, const size_t x, const size_t y, unsigned int **const board_status, unsigned int **const num_unknown, const unsigned int **mine_nums, int **const num_mine_remaining, const bool **board, std::set< std::pair<size_t, size_t> > &partial_sq_set, std::set< std::pair<size_t, size_t> > &non_mines_sq_set, size_t &ssq_count) {
 	if (num_mine_remaining[y][x] > 0 && ((unsigned int)num_mine_remaining[y][x]) == num_unknown[y][x]) {
 		partial_sq_set.erase(std::pair<size_t, size_t>(x, y)); 
 		if (x > 0) {
 			if (board_status[y][x - 1] == UNKNOWN) {
-				mark_as_mine(x - 1, y, board_width, board_height, board, board_status, num_unknown, mine_nums, num_mine_remaining, partial_sq_set, ssq_count);
+				mark_as_mine(x - 1, y, board_width, board_height, board, board_status, num_unknown, mine_nums, num_mine_remaining, partial_sq_set, non_mines_sq_set, ssq_count);
 			}
 		}
 		if (x + 1 < board_width) {
 			if (board_status[y][x + 1] == UNKNOWN) {
-				mark_as_mine(x + 1, y, board_width, board_height, board, board_status, num_unknown, mine_nums, num_mine_remaining, partial_sq_set, ssq_count);
+				mark_as_mine(x + 1, y, board_width, board_height, board, board_status, num_unknown, mine_nums, num_mine_remaining, partial_sq_set, non_mines_sq_set, ssq_count);
 			}
 
 		}
 		if (y > 0) {
 			if (board_status[y - 1][x] == UNKNOWN) {
-				mark_as_mine(x, y - 1, board_width, board_height, board, board_status, num_unknown, mine_nums, num_mine_remaining, partial_sq_set, ssq_count);
+				mark_as_mine(x, y - 1, board_width, board_height, board, board_status, num_unknown, mine_nums, num_mine_remaining, partial_sq_set, non_mines_sq_set, ssq_count);
 			}
 			if (x > 0) {
 				if (board_status[y - 1][x - 1] == UNKNOWN) {
-					mark_as_mine(x - 1, y - 1, board_width, board_height, board, board_status, num_unknown, mine_nums, num_mine_remaining, partial_sq_set, ssq_count);
+					mark_as_mine(x - 1, y - 1, board_width, board_height, board, board_status, num_unknown, mine_nums, num_mine_remaining, partial_sq_set, non_mines_sq_set, ssq_count);
 				}
 			}
 			if (x + 1 < board_width) {
 				if (board_status[y - 1][x + 1] == UNKNOWN) {
-					mark_as_mine(x + 1, y - 1, board_width, board_height, board, board_status, num_unknown, mine_nums, num_mine_remaining, partial_sq_set, ssq_count);
+					mark_as_mine(x + 1, y - 1, board_width, board_height, board, board_status, num_unknown, mine_nums, num_mine_remaining, partial_sq_set, non_mines_sq_set, ssq_count);
 				}
 			}
 		}
 		if (y + 1 < board_height) {
 			if (board_status[y + 1][x] == UNKNOWN) {
-				mark_as_mine(x, y + 1, board_width, board_height, board, board_status, num_unknown, mine_nums, num_mine_remaining, partial_sq_set, ssq_count);
+				mark_as_mine(x, y + 1, board_width, board_height, board, board_status, num_unknown, mine_nums, num_mine_remaining, partial_sq_set, non_mines_sq_set, ssq_count);
 			}
 			if (x > 0) {
 				if (board_status[y + 1][x - 1] == UNKNOWN) {
-					mark_as_mine(x - 1, y + 1, board_width, board_height, board, board_status, num_unknown, mine_nums, num_mine_remaining, partial_sq_set, ssq_count);
+					mark_as_mine(x - 1, y + 1, board_width, board_height, board, board_status, num_unknown, mine_nums, num_mine_remaining, partial_sq_set, non_mines_sq_set, ssq_count);
 				}
 			}
 			if (x + 1 < board_width) {
 				if (board_status[y + 1][x + 1] == UNKNOWN) {
-					mark_as_mine(x + 1, y + 1, board_width, board_height, board, board_status, num_unknown, mine_nums, num_mine_remaining, partial_sq_set, ssq_count);
+					mark_as_mine(x + 1, y + 1, board_width, board_height, board, board_status, num_unknown, mine_nums, num_mine_remaining, partial_sq_set, non_mines_sq_set, ssq_count);
 				}
 			}
 		}
 	}
 }
 
-void deduce_remaining_non_mines(const size_t board_width, const size_t board_height, const size_t x, const size_t y, unsigned int **const board_status, unsigned int **const num_unknown, const unsigned int **mine_nums, int **const num_mine_remaining, const bool **board, std::set< std::pair<size_t, size_t> > &partial_sq_set, size_t &ssq_count) {
+void deduce_remaining_non_mines(const size_t board_width, const size_t board_height, const size_t x, const size_t y, unsigned int **const board_status, unsigned int **const num_unknown, const unsigned int **mine_nums, int **const num_mine_remaining, const bool **board, std::set< std::pair<size_t, size_t> > &partial_sq_set, std::set< std::pair<size_t, size_t> > &non_mines_sq_set, size_t &ssq_count) {
 	if (board_status[y][x] != UNKNOWN && board_status[y][x] != MINE && num_mine_remaining[y][x] == 0) {
 		partial_sq_set.erase(std::pair<size_t, size_t>(x, y));
 		if (x > 0 && board_status[y][x - 1] == UNKNOWN) {
-			reveal_sq(x - 1, y, board_width, board_height, board, board_status, num_unknown, mine_nums, num_mine_remaining, partial_sq_set, ssq_count);
+			reveal_sq(x - 1, y, board_width, board_height, board, board_status, num_unknown, mine_nums, num_mine_remaining, partial_sq_set, non_mines_sq_set, ssq_count);
 		}
 		if (x + 1 < board_width && board_status[y][x + 1] == UNKNOWN) {
-			reveal_sq(x + 1, y, board_width, board_height, board, board_status, num_unknown, mine_nums, num_mine_remaining, partial_sq_set, ssq_count);
+			reveal_sq(x + 1, y, board_width, board_height, board, board_status, num_unknown, mine_nums, num_mine_remaining, partial_sq_set, non_mines_sq_set, ssq_count);
 		}
 		if (y > 0) {
 			if (board_status[y - 1][x] == UNKNOWN) {
-				reveal_sq(x, y - 1, board_width, board_height, board, board_status, num_unknown, mine_nums, num_mine_remaining, partial_sq_set, ssq_count);
+				reveal_sq(x, y - 1, board_width, board_height, board, board_status, num_unknown, mine_nums, num_mine_remaining, partial_sq_set, non_mines_sq_set, ssq_count);
 			}
 			if (x > 0 && board_status[y - 1][x - 1] == UNKNOWN) {
-				reveal_sq(x - 1, y - 1, board_width, board_height, board, board_status, num_unknown, mine_nums, num_mine_remaining, partial_sq_set, ssq_count);
+				reveal_sq(x - 1, y - 1, board_width, board_height, board, board_status, num_unknown, mine_nums, num_mine_remaining, partial_sq_set, non_mines_sq_set, ssq_count);
 			}
 			if (x + 1 < board_width && board_status[y - 1][x + 1] == UNKNOWN) {
-				reveal_sq(x + 1, y - 1, board_width, board_height, board, board_status, num_unknown, mine_nums, num_mine_remaining, partial_sq_set, ssq_count);
+				reveal_sq(x + 1, y - 1, board_width, board_height, board, board_status, num_unknown, mine_nums, num_mine_remaining, partial_sq_set, non_mines_sq_set, ssq_count);
 			}
 		}
 		if (y + 1 < board_height) {
 			if (board_status[y + 1][x] == UNKNOWN) {
-				reveal_sq(x, y + 1, board_width, board_height, board, board_status, num_unknown, mine_nums, num_mine_remaining, partial_sq_set, ssq_count);
+				reveal_sq(x, y + 1, board_width, board_height, board, board_status, num_unknown, mine_nums, num_mine_remaining, partial_sq_set, non_mines_sq_set, ssq_count);
 			}
 			if (x > 0 && board_status[y + 1][x - 1] == UNKNOWN) {
-				reveal_sq(x - 1, y + 1, board_width, board_height, board, board_status, num_unknown, mine_nums, num_mine_remaining, partial_sq_set, ssq_count);
+				reveal_sq(x - 1, y + 1, board_width, board_height, board, board_status, num_unknown, mine_nums, num_mine_remaining, partial_sq_set, non_mines_sq_set, ssq_count);
 			}
 			if (x + 1 < board_width && board_status[y + 1][x + 1] == UNKNOWN) {
-				reveal_sq(x + 1, y + 1, board_width, board_height, board, board_status, num_unknown, mine_nums, num_mine_remaining, partial_sq_set, ssq_count);
+				reveal_sq(x + 1, y + 1, board_width, board_height, board, board_status, num_unknown, mine_nums, num_mine_remaining, partial_sq_set, non_mines_sq_set, ssq_count);
 			}
 		}
 	}
 }
 
 
-void decr_num_unknown(const size_t board_width, const size_t board_height, const size_t x, const size_t y, unsigned int **const board_status, unsigned int **const num_unknown, const unsigned int **mine_nums, int **const num_mine_remaining, const bool **board, std::set< std::pair<size_t, size_t> > &partial_sq_set, size_t &ssq_count) {
+void decr_num_unknown(const size_t board_width, const size_t board_height, const size_t x, const size_t y, unsigned int **const board_status, unsigned int **const num_unknown, const unsigned int **mine_nums, int **const num_mine_remaining, const bool **board, std::set< std::pair<size_t, size_t> > &partial_sq_set, std::set< std::pair<size_t, size_t> > &non_mines_sq_set, size_t &ssq_count) {
 	--num_unknown[y][x];
-	deduce_remaining_mines(board_width, board_height, x, y, board_status, num_unknown, mine_nums, num_mine_remaining, board, partial_sq_set, ssq_count);
-	deduce_remaining_non_mines(board_width, board_height, x, y, board_status, num_unknown, mine_nums, num_mine_remaining, board, partial_sq_set, ssq_count);
+	deduce_remaining_mines(board_width, board_height, x, y, board_status, num_unknown, mine_nums, num_mine_remaining, board, partial_sq_set, non_mines_sq_set, ssq_count);
+	deduce_remaining_non_mines(board_width, board_height, x, y, board_status, num_unknown, mine_nums, num_mine_remaining, board, partial_sq_set, non_mines_sq_set, ssq_count);
 }
 
-void mark_as_mine(const size_t x, const size_t y, const size_t board_width, const size_t board_height, const bool **board, unsigned int **const board_status, unsigned int **const num_unknown, const unsigned int **mine_nums, int **const num_mine_remaining, std::set< std::pair<size_t, size_t> > &partial_sq_set, size_t &ssq_count) {
+void mark_as_mine(const size_t x, const size_t y, const size_t board_width, const size_t board_height, const bool **board, unsigned int **const board_status, unsigned int **const num_unknown, const unsigned int **mine_nums, int **const num_mine_remaining, std::set< std::pair<size_t, size_t> > &partial_sq_set, std::set< std::pair<size_t, size_t> > &non_mines_sq_set, size_t &ssq_count) {
 	if (board_status[y][x] != MINE) {
 		assert(board[y][x]);
 		board_status[y][x] = MINE;
 		++ssq_count;
 		if (x > 0) {
 			--num_mine_remaining[y][x - 1];
-			decr_num_unknown(board_width, board_height, x - 1, y, board_status, num_unknown, mine_nums, num_mine_remaining, board, partial_sq_set, ssq_count);
+			decr_num_unknown(board_width, board_height, x - 1, y, board_status, num_unknown, mine_nums, num_mine_remaining, board, partial_sq_set, non_mines_sq_set, ssq_count);
 		}
 		if (x + 1 < board_width) {
 			--num_mine_remaining[y][x + 1];
-			decr_num_unknown(board_width, board_height, x + 1, y, board_status, num_unknown, mine_nums, num_mine_remaining, board, partial_sq_set, ssq_count);
+			decr_num_unknown(board_width, board_height, x + 1, y, board_status, num_unknown, mine_nums, num_mine_remaining, board, partial_sq_set, non_mines_sq_set, ssq_count);
 		}
 		if (y > 0) {
 			--num_mine_remaining[y - 1][x];
-			decr_num_unknown(board_width, board_height, x, y - 1, board_status, num_unknown, mine_nums, num_mine_remaining, board, partial_sq_set, ssq_count);
+			decr_num_unknown(board_width, board_height, x, y - 1, board_status, num_unknown, mine_nums, num_mine_remaining, board, partial_sq_set, non_mines_sq_set, ssq_count);
 			if (x > 0) {
 				--num_mine_remaining[y - 1][x - 1];
-				decr_num_unknown(board_width, board_height, x - 1, y - 1, board_status, num_unknown, mine_nums, num_mine_remaining, board, partial_sq_set, ssq_count);
+				decr_num_unknown(board_width, board_height, x - 1, y - 1, board_status, num_unknown, mine_nums, num_mine_remaining, board, partial_sq_set, non_mines_sq_set, ssq_count);
 			}
 			if (x + 1 < board_width) {
 				--num_mine_remaining[y - 1][x + 1];
-				decr_num_unknown(board_width, board_height, x + 1, y - 1, board_status, num_unknown, mine_nums, num_mine_remaining, board, partial_sq_set, ssq_count);
+				decr_num_unknown(board_width, board_height, x + 1, y - 1, board_status, num_unknown, mine_nums, num_mine_remaining, board, partial_sq_set, non_mines_sq_set, ssq_count);
 			}
 		}
 		if (y + 1 < board_height) {
 			--num_mine_remaining[y + 1][x];
-			decr_num_unknown(board_width, board_height, x, y + 1, board_status, num_unknown, mine_nums, num_mine_remaining, board, partial_sq_set, ssq_count);
+			decr_num_unknown(board_width, board_height, x, y + 1, board_status, num_unknown, mine_nums, num_mine_remaining, board, partial_sq_set, non_mines_sq_set, ssq_count);
 			if (x > 0) {
 				--num_mine_remaining[y + 1][x - 1];
-				decr_num_unknown(board_width, board_height, x - 1, y + 1, board_status, num_unknown, mine_nums, num_mine_remaining, board, partial_sq_set, ssq_count);
+				decr_num_unknown(board_width, board_height, x - 1, y + 1, board_status, num_unknown, mine_nums, num_mine_remaining, board, partial_sq_set, non_mines_sq_set, ssq_count);
 			}
 			if (x + 1 < board_width) {
 				--num_mine_remaining[y + 1][x + 1];
-				decr_num_unknown(board_width, board_height, x + 1, y + 1, board_status, num_unknown, mine_nums, num_mine_remaining, board, partial_sq_set, ssq_count);
+				decr_num_unknown(board_width, board_height, x + 1, y + 1, board_status, num_unknown, mine_nums, num_mine_remaining, board, partial_sq_set, non_mines_sq_set, ssq_count);
 			}
 		}
 	}
 }
 
-void reveal_sq(const size_t x, const size_t y, const size_t board_width, const size_t board_height, const bool **board, unsigned int **const board_status, unsigned int **const num_unknown, const unsigned int **mine_nums, int **const num_mine_remaining, std::set< std::pair<size_t, size_t> > &partial_sq_set, size_t &ssq_count) {
+void reveal_sq(const size_t x, const size_t y, const size_t board_width, const size_t board_height, const bool **board, unsigned int **const board_status, unsigned int **const num_unknown, const unsigned int **mine_nums, int **const num_mine_remaining, std::set< std::pair<size_t, size_t> > &partial_sq_set, std::set< std::pair<size_t, size_t> > &non_mines_sq_set, size_t &ssq_count) {
 	assert(!board[y][x]);
 	assert(board_status[y][x] == UNKNOWN);
 	board_status[y][x] = mine_nums[y][x];
+	non_mines_sq_set.erase(std::pair<size_t, size_t>(x, y));
 	num_mine_remaining[y][x] += mine_nums[y][x];
 	++ssq_count;
 	if (VERBOSE) {
@@ -378,31 +387,31 @@ void reveal_sq(const size_t x, const size_t y, const size_t board_width, const s
 		std::cout << "\nSTATUS: applying logical deductions...\n"; 
 	}
 	if (x > 0) {
-		decr_num_unknown(board_width, board_height, x - 1, y, board_status, num_unknown, mine_nums, num_mine_remaining, board, partial_sq_set, ssq_count);
+		decr_num_unknown(board_width, board_height, x - 1, y, board_status, num_unknown, mine_nums, num_mine_remaining, board, partial_sq_set, non_mines_sq_set, ssq_count);
 	}
 	if (x + 1 < board_width) {
-		decr_num_unknown(board_width, board_height, x + 1, y, board_status, num_unknown, mine_nums, num_mine_remaining, board, partial_sq_set, ssq_count);
+		decr_num_unknown(board_width, board_height, x + 1, y, board_status, num_unknown, mine_nums, num_mine_remaining, board, partial_sq_set, non_mines_sq_set, ssq_count);
 	}
 	if (y > 0) {
-		decr_num_unknown(board_width, board_height, x, y - 1, board_status, num_unknown, mine_nums, num_mine_remaining, board, partial_sq_set, ssq_count);
+		decr_num_unknown(board_width, board_height, x, y - 1, board_status, num_unknown, mine_nums, num_mine_remaining, board, partial_sq_set, non_mines_sq_set, ssq_count);
 		if (x > 0) {
-			decr_num_unknown(board_width, board_height, x - 1, y - 1, board_status, num_unknown, mine_nums, num_mine_remaining, board, partial_sq_set, ssq_count);
+			decr_num_unknown(board_width, board_height, x - 1, y - 1, board_status, num_unknown, mine_nums, num_mine_remaining, board, partial_sq_set, non_mines_sq_set, ssq_count);
 		}
 		if (x + 1 < board_width) {
-			decr_num_unknown(board_width, board_height, x + 1, y - 1, board_status, num_unknown, mine_nums, num_mine_remaining, board, partial_sq_set, ssq_count);
+			decr_num_unknown(board_width, board_height, x + 1, y - 1, board_status, num_unknown, mine_nums, num_mine_remaining, board, partial_sq_set, non_mines_sq_set, ssq_count);
 		}
 	}
 	if (y + 1 < board_height) {
-		decr_num_unknown(board_width, board_height, x, y + 1, board_status, num_unknown, mine_nums, num_mine_remaining, board, partial_sq_set, ssq_count);
+		decr_num_unknown(board_width, board_height, x, y + 1, board_status, num_unknown, mine_nums, num_mine_remaining, board, partial_sq_set, non_mines_sq_set, ssq_count);
 		if (x > 0) {
-			decr_num_unknown(board_width, board_height, x - 1, y + 1, board_status, num_unknown, mine_nums, num_mine_remaining, board, partial_sq_set, ssq_count);
+			decr_num_unknown(board_width, board_height, x - 1, y + 1, board_status, num_unknown, mine_nums, num_mine_remaining, board, partial_sq_set, non_mines_sq_set, ssq_count);
 		}
 		if (x + 1 < board_width) {
-			decr_num_unknown(board_width, board_height, x + 1, y + 1, board_status, num_unknown, mine_nums, num_mine_remaining, board, partial_sq_set, ssq_count);
+			decr_num_unknown(board_width, board_height, x + 1, y + 1, board_status, num_unknown, mine_nums, num_mine_remaining, board, partial_sq_set, non_mines_sq_set, ssq_count);
 		}
 	}
-	deduce_remaining_mines(board_width, board_height, x, y, board_status, num_unknown, mine_nums, num_mine_remaining, board, partial_sq_set, ssq_count);
-	deduce_remaining_non_mines(board_width, board_height, x, y, board_status, num_unknown, mine_nums, num_mine_remaining, board, partial_sq_set, ssq_count);
+	deduce_remaining_mines(board_width, board_height, x, y, board_status, num_unknown, mine_nums, num_mine_remaining, board, partial_sq_set, non_mines_sq_set, ssq_count);
+	deduce_remaining_non_mines(board_width, board_height, x, y, board_status, num_unknown, mine_nums, num_mine_remaining, board, partial_sq_set, non_mines_sq_set, ssq_count);
 	if (num_mine_remaining[y][x] > 0) {
 		partial_sq_set.insert(std::pair<size_t, size_t>(x, y));
 	}
@@ -570,7 +579,7 @@ void solve_partial_sq(const size_t x, const size_t y, const size_t board_width, 
 	}	
 }
 
-void solve_partial_sq_set(const size_t board_width, const size_t board_height, const bool **board, const unsigned int **mine_nums, unsigned int **const board_status, int **const num_mine_remaining, unsigned int **const num_unknown, std::set< std::pair<size_t, size_t> > &partial_sq_set, size_t &ssq_count) {
+void solve_partial_sq_set(const size_t board_width, const size_t board_height, const bool **board, const unsigned int **mine_nums, unsigned int **const board_status, int **const num_mine_remaining, unsigned int **const num_unknown, std::set< std::pair<size_t, size_t> > &partial_sq_set, std::set< std::pair<size_t, size_t> > &non_mines_sq_set, size_t &ssq_count) {
 	std::set< std::pair<size_t, size_t> > ssq;
 	std::vector< std::set< std::pair<size_t, size_t> >* > segs;
 	for (std::set< std::pair<size_t, size_t> >::const_iterator p_iter = partial_sq_set.begin(); p_iter != partial_sq_set.end(); ++p_iter) {
@@ -652,11 +661,11 @@ void solve_partial_sq_set(const size_t board_width, const size_t board_height, c
 			}
 		}
 		for (std::set< std::pair<size_t, size_t> >::const_iterator m_iter = mines.begin(); m_iter != mines.end(); ++m_iter) { 
-			mark_as_mine(m_iter -> first, m_iter -> second, board_width, board_height, board, board_status, num_unknown, mine_nums, num_mine_remaining, partial_sq_set, ssq_count);
+			mark_as_mine(m_iter -> first, m_iter -> second, board_width, board_height, board, board_status, num_unknown, mine_nums, num_mine_remaining, partial_sq_set, non_mines_sq_set, ssq_count);
 		}
 		for (std::set< std::pair<size_t, size_t> >::const_iterator nm_iter = non_mines.begin(); nm_iter != non_mines.end(); ++nm_iter) { 
 			if (board_status[nm_iter -> second][nm_iter -> first] == UNKNOWN) {
-				reveal_sq(nm_iter -> first, nm_iter -> second, board_width, board_height, board, board_status, num_unknown, mine_nums, num_mine_remaining, partial_sq_set, ssq_count);
+				reveal_sq(nm_iter -> first, nm_iter -> second, board_width, board_height, board, board_status, num_unknown, mine_nums, num_mine_remaining, partial_sq_set, non_mines_sq_set, ssq_count);
 			}
 		}
 	}
@@ -665,35 +674,44 @@ void solve_partial_sq_set(const size_t board_width, const size_t board_height, c
 	}
 }
 
-void solve(const size_t board_width, const size_t board_height, const bool **board, const unsigned int **mine_nums, unsigned int **const board_status, int **const num_mine_remaining, unsigned int **const num_unknown, std::set< std::pair<size_t, size_t> > &partial_sq_set, size_t &ssq_count) {
+void solve(const size_t board_width, const size_t board_height, const bool **board, const unsigned int **mine_nums, unsigned int **const board_status, int **const num_mine_remaining, unsigned int **const num_unknown, std::set< std::pair<size_t, size_t> > &partial_sq_set, std::set< std::pair<size_t, size_t> > &non_mines_sq_set, size_t &ssq_count) {
 	while (ssq_count < board_width * board_height) {
-		size_t y = rand() % board_height, x = rand() % board_width; 
-		while (true) {
-			if (!board[y][x] && board_status[y][x] == UNKNOWN) {
-				break;
+		if (!non_mines_sq_set.empty()) {
+			size_t x, y, n = rand() % non_mines_sq_set.size(); 
+			std::set< std::pair<size_t, size_t> >::const_iterator nms_iter = non_mines_sq_set.begin(); 
+			for (size_t i = 0; i < n; ++i) {
+				++nms_iter;
 			}
-			y = rand() % board_height;
-			x = rand() % board_width;
-		}
-		if (VERBOSE) {
-			std::cout << "\n";
-			for (size_t i = 0; i < board_width; ++i) {
-				std::cout << "__";
+			x = nms_iter -> first;
+			y = nms_iter -> second;
+			if (VERBOSE) {
+				std::cout << "\n";
+				for (size_t i = 0; i < board_width; ++i) {
+					std::cout << "__";
+				}
+				std::cout << "\nSTATUS: \"I'm feeling lucky\"\n"; 
 			}
-			std::cout << "\nSTATUS: \"I'm feeling lucky\"\n"; 
-		}
-		reveal_sq(x, y, board_width, board_height, board, board_status, num_unknown, mine_nums, num_mine_remaining, partial_sq_set, ssq_count);
-		if (VERBOSE) {
-			print_board_status(BOARD_WIDTH, BOARD_HEIGHT, (const unsigned int**)board_status);
-		}
-		if (VERBOSE) {
-			std::cout << "\n";
-			for (size_t i = 0; i < board_width; ++i) {
-				std::cout << "__";
+			reveal_sq(x, y, board_width, board_height, board, board_status, num_unknown, mine_nums, num_mine_remaining, partial_sq_set, non_mines_sq_set, ssq_count);
+			if (VERBOSE) {
+				print_board_status(BOARD_WIDTH, BOARD_HEIGHT, (const unsigned int**)board_status);
 			}
-			std::cout << "\nSTATUS: applying logical deductions...\n"; 
+			if (VERBOSE) {
+				std::cout << "\n";
+				for (size_t i = 0; i < board_width; ++i) {
+					std::cout << "__";
+				}
+				std::cout << "\nSTATUS: applying logical deductions...\n"; 
+			}
+			solve_partial_sq_set(board_width, board_height, board, mine_nums, board_status, num_mine_remaining, num_unknown, partial_sq_set, non_mines_sq_set, ssq_count);
+		}else {
+			for (size_t x = 0; x < board_width; ++x) {
+				for (size_t y = 0; y < board_height; ++y) {
+					if (board_status[y][x] == UNKNOWN) {
+						mark_as_mine(x, y, board_width, board_height, board, board_status, num_unknown, mine_nums, num_mine_remaining, partial_sq_set, non_mines_sq_set, ssq_count);
+					}
+				}
+			}
 		}
-		solve_partial_sq_set(board_width, board_height, board, mine_nums, board_status, num_mine_remaining, num_unknown, partial_sq_set, ssq_count);
 	}
 	if (VERBOSE) {
 		std::cout << "\n";
@@ -725,8 +743,9 @@ int main(int argc, char *argv[]) {
 	unsigned int **mine_nums = NULL, **board_status = NULL, **num_unknown = NULL;
 	int **num_mine_remaining = NULL;
 	std::set< std::pair<size_t, size_t> > partial_sq_set;
-	new_game(BOARD_WIDTH, BOARD_HEIGHT, NUM_MINE, board, mine_nums, board_status, num_unknown, num_mine_remaining);
-	solve(BOARD_WIDTH, BOARD_HEIGHT, (const bool**)board, (const unsigned int**)mine_nums, board_status, num_mine_remaining, num_unknown, partial_sq_set, ssq_count);
+	std::set< std::pair<size_t, size_t> > non_mines_sq_set;
+	new_game(BOARD_WIDTH, BOARD_HEIGHT, NUM_MINE, board, mine_nums, board_status, num_unknown, num_mine_remaining, non_mines_sq_set);
+	solve(BOARD_WIDTH, BOARD_HEIGHT, (const bool**)board, (const unsigned int**)mine_nums, board_status, num_mine_remaining, num_unknown, partial_sq_set, non_mines_sq_set, ssq_count);
 	delete_game(BOARD_HEIGHT, board, mine_nums, board_status, num_mine_remaining, num_unknown);
 	return 0;
 }
